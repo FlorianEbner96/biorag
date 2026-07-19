@@ -1,26 +1,12 @@
-# Data layer
+# Core runtime — everything the fetch -> clean -> chunk -> embed -> retrieve
+# pipeline actually imports. Install these and the whole retrieval stack runs.
+numpy>=1.24
 requests>=2.31
-
-# Cleaning / text
-regex>=2023.0
-
-# Embeddings (local, free — no API key needed)
 sentence-transformers>=2.6
-torch>=2.0
-
-# Vector store
-chromadb>=0.5
-
-# Keyword baseline (for the evaluation layer's comparison)
 rank-bm25>=0.2.2
 
-# Generation (only layer that hits a paid API)
-anthropic>=0.40
-
-# API layer
-fastapi>=0.110
-uvicorn>=0.29
-pydantic>=2.6
-
-# Testing
-pytest>=8.0
+# Optional extras live in pyproject.toml, not here:
+#   pip install -e ".[generation]"   anthropic — answer generation
+#   pip install -e ".[chroma]"       chromadb  — persistent vector store backend
+#   pip install -e ".[api]"          fastapi   — HTTP layer (not yet built)
+#   pip install -e ".[dev]"          pytest    — test suite

@@ -18,11 +18,11 @@ so provenance is carried through every layer rather than reconstructed at the en
 | Ingestion — embed | `ingestion/embedder.py` | complete |
 | Ingestion — store | `ingestion/store.py` | complete |
 | Retrieval | `retrieval/retriever.py` | complete |
-| Generation | `generation/` | not started |
-| Evaluation | `evaluation/` | not started |
+| Generation | `generation/` | complete |
+| Evaluation | `evaluation/` | complete |
 | API | `api/` | not started |
 
-64 tests, all passing, none requiring network or a model download.
+102 tests, all passing, none requiring network, an API key, or a model download.
 
 ## Quickstart
 
@@ -32,6 +32,7 @@ pip install -e . && pip install -r requirements.txt
 
 # See the whole pipeline run on synthetic data — no API key, no network
 python examples/demo_retrieval.py
+python examples/demo_evaluation.py
 
 # Real corpus
 python -m biorag.data.fetch_pubmed --email you@example.com --retmax 1000
@@ -82,9 +83,29 @@ duplicate titles, one-line abstracts — so the cleaner is asserted against know
 ground truth. Tests that need the network get skipped, and skipped tests protect
 nothing.
 
+**Citations are verified, not trusted.** The prompt asks for inline `[PMID]`
+markers; the answerer then checks every cited PMID against what was actually
+retrieved. A model citing a plausible PMID that was never in the context is the
+most damaging failure this system has, because the output looks entirely
+credible. `Answer.is_grounded` is False whenever that happens.
+
+**~20% of the gold set is deliberately unanswerable.** This is the category most
+evaluation sets omit, and the only one that detects a system which answers
+everything confidently. A RAG system scoring perfectly on factual questions while
+never refusing is useless in a scientific setting — `refusal_recall` is the metric
+that catches it, and it cannot be computed at all without such questions.
+
+**Retrieval and generation are scored separately, in that order.** If recall@5 is
+0.4, no prompt engineering will fix the answers — the relevant abstract was never
+in the context. Debugging answers when the problem is upstream in retrieval is the
+most common time sink in these projects.
+
 ## Next
 
-Generation layer (Claude, constrained to answer only from retrieved context, with
-inline PMID citations), then the evaluation layer — hand-written questions with
-known answers, measuring RAG against the keyword baseline for a quantitative
-results section rather than a demo.
+1. Fetch a real corpus and hand-write 20-30 gold questions against it, **before**
+   tuning anything. Questions written after seeing what the system does well
+   measure your own selection bias.
+2. Run the retriever comparison on real data and paste the table here.
+3. Swap in a biomedical embedding model (`S-PubMedBert-MS-MARCO`) and measure
+   whether it beats MiniLM on this corpus, rather than assuming it does.
+4. FastAPI `/ask` endpoint, then Docker.

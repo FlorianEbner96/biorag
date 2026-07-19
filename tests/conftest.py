@@ -77,3 +77,43 @@ def store(chunks, fake_embedder):
     s = NumpyStore()
     s.add(chunks, fake_embedder.embed_chunks(chunks).vectors)
     return s
+
+
+class FakeLLM:
+    """Scripted LLM client — no API key, no cost, deterministic.
+
+    Behaviour is chosen per test via `responses` or `mode`, so generation logic
+    (citation extraction, hallucination detection, refusal handling) is tested
+    without ever depending on what a real model happens to say. Testing against a
+    live model would make these tests slow, expensive, and flaky in exchange for
+    no additional coverage of OUR code.
+    """
+
+    def __init__(self, responses=None, mode: str = "cite_first"):
+        self.responses = list(responses) if responses else None
+        self.mode = mode
+        self.calls: list[tuple[str, str]] = []
+
+    def complete(self, system: str, user: str, *, max_tokens: int, temperature: float) -> str:
+        self.calls.append((system, user))
+        if self.responses:
+            return self.responses.pop(0)
+
+        import re
+        pmids = re.findall(r"\[PMID (\d+)\]", user)
+        if self.mode == "cite_first" and pmids:
+            return f"The compound acts allosterically [{pmids[0]}]."
+        if self.mode == "cite_all" and pmids:
+            return " ".join(f"Finding {i} is reported [{p}]." for i, p in enumerate(pmids, 1))
+        if self.mode == "hallucinate":
+            return "This is well established [99999999]."
+        if self.mode == "refuse":
+            return "INSUFFICIENT_CONTEXT: the abstracts do not address this question."
+        if self.mode == "uncited":
+            return "Allosteric inhibitors bind outside the ATP pocket."
+        return "No answer."
+
+
+@pytest.fixture
+def fake_llm():
+    return FakeLLM()
