@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "biorag"
+version = "0.1.0"
+description = "Retrieval-augmented QA over PubMed literature on allosteric kinase inhibitors."
+requires-python = ">=3.10"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "network: hits NCBI E-utilities (deselect with '-m \"not network\"')",
+    "model: downloads or runs the embedding model (deselect with '-m \"not model\"')",
+]
+
+[tool.ruff]
+line-length = 100

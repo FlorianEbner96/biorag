@@ -1,0 +1,26 @@
+# Data layer
+requests>=2.31
+
+# Cleaning / text
+regex>=2023.0
+
+# Embeddings (local, free — no API key needed)
+sentence-transformers>=2.6
+torch>=2.0
+
+# Vector store
+chromadb>=0.5
+
+# Keyword baseline (for the evaluation layer's comparison)
+rank-bm25>=0.2.2
+
+# Generation (only layer that hits a paid API)
+anthropic>=0.40
+
+# API layer
+fastapi>=0.110
+uvicorn>=0.29
+pydantic>=2.6
+
+# Testing
+pytest>=8.0
