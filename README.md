@@ -20,26 +20,80 @@ so provenance is carried through every layer rather than reconstructed at the en
 | Retrieval | `retrieval/retriever.py` | complete |
 | Generation | `generation/` | complete |
 | Evaluation | `evaluation/` | complete |
+| Query CLI | `examples/ask.py` | complete |
 | API | `api/` | not started |
 
 102 tests, all passing, none requiring network, an API key, or a model download.
 
-## Quickstart
+## Setup
 
 ```bash
-python -m venv .venv && source .venv/bin/activate
-pip install -e . && pip install -r requirements.txt
+python -m venv .venv
+source .venv/bin/activate          # Windows: .venv\Scripts\Activate.ps1
+pip install -e ".[generation,dev]" # installs torch/sentence-transformers too (a few hundred MB)
+```
 
-# See the whole pipeline run on synthetic data — no API key, no network
-python examples/demo_retrieval.py
-python examples/demo_evaluation.py
+## Try it without any data (offline, no API key)
 
-# Real corpus
+The demos run on synthetic PubMed-shaped data — no network, no model download,
+no key. Good for seeing the whole pipeline end to end in seconds.
+
+```bash
+python examples/demo_retrieval.py    # clean -> chunk -> index -> retrieve
+python examples/demo_evaluation.py   # retrieval + generation + metrics
+pytest -q                            # 102 tests, all offline
+```
+
+## Run it on a real corpus
+
+**1. Fetch abstracts from PubMed.** NCBI requires an email to identify callers;
+a free [API key](https://www.ncbi.nlm.nih.gov/account/) is optional and only
+raises the rate limit.
+
+```bash
 python -m biorag.data.fetch_pubmed --email you@example.com --retmax 1000
-python -m biorag.data.clean_corpus
-python -m biorag.ingestion.pipeline
+```
 
-pytest -q
+**2. Clean the corpus** (dedup, boilerplate stripping, retraction/quality
+filters — prints a cleaning report).
+
+```bash
+python -m biorag.data.clean_corpus
+```
+
+**3. Build the index** (downloads the embedding model, ~80 MB, on first run).
+
+```bash
+python -m biorag.ingestion.pipeline
+```
+
+**4. Ask questions.**
+
+```bash
+python examples/ask.py "Which compounds inhibit PI3K-alpha allosterically?"
+python examples/ask.py                 # interactive: several questions in a row
+python examples/ask.py "..." --out results.json   # optional: also save results to a file
+```
+
+Saving is opt-in: without `--out` nothing is written; with `--out` each question
+and its results are appended to the given JSON file. The evaluation demo takes the
+same flag (`python examples/demo_evaluation.py --out metrics.json`).
+
+Without an API key this returns the retrieved abstracts with their PMIDs — free.
+For generated answers **with inline citations**, set a key (costs a few cents,
+requires credits):
+
+```bash
+export ANTHROPIC_API_KEY=sk-ant-...    # Windows: $env:ANTHROPIC_API_KEY = "sk-ant-..."
+python examples/ask.py
+```
+
+## Data flow
+
+```
+fetch_pubmed  ->  clean_corpus  ->  ingestion.pipeline  ->  ask
+ raw JSON          clean JSON        chunks + vector index    retrieve (+ answer)
+ data/raw/         data/clean/       data/index/              PMID-cited output
 ```
 
 ## Design decisions worth knowing

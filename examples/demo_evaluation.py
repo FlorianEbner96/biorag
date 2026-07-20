@@ -8,6 +8,8 @@ demonstrable.
 """
 from __future__ import annotations
 
+import argparse
+import json
 import logging
 import sys
 from pathlib import Path
@@ -25,6 +27,12 @@ from biorag.retrieval.retriever import BM25Retriever, DenseRetriever, HybridRetr
 
 
 def main() -> int:
+    parser = argparse.ArgumentParser(description="Offline evaluation demo.")
+    parser.add_argument("--out", default=None,
+                        help="Optional: write the computed metrics to this JSON file. "
+                             "Without --out nothing is saved.")
+    args = parser.parse_args()
+
     logging.basicConfig(level=logging.ERROR)
     from conftest import FakeEmbedder, FakeLLM
 
@@ -67,8 +75,27 @@ def main() -> int:
         print(f"   grounded={answer.is_grounded}  citation_rate={answer.citation_rate:.2f}")
 
     answer_metrics = evaluate_answers(answers, gold)
+    retrieval_metrics = evaluate_retrieval(hybrid, gold, k=5)
     print("\nAnswer metrics\n" + answer_metrics.summary())
-    print("\nRetrieval metrics (hybrid)\n" + evaluate_retrieval(hybrid, gold, k=5).summary())
+    print("\nRetrieval metrics (hybrid)\n" + retrieval_metrics.summary())
+
+    if args.out is not None:
+        out_path = Path(args.out)
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        out_path.write_text(json.dumps({
+            "retrieval": {"recall_at_k": retrieval_metrics.recall_at_k,
+                          "precision_at_k": retrieval_metrics.precision_at_k,
+                          "mrr": retrieval_metrics.mrr,
+                          "hit_rate": retrieval_metrics.hit_rate,
+                          "k": retrieval_metrics.k,
+                          "n_questions": retrieval_metrics.n_questions},
+            "answers": {"citation_rate": answer_metrics.citation_rate,
+                        "grounded_rate": answer_metrics.grounded_rate,
+                        "refusal_precision": answer_metrics.refusal_precision,
+                        "refusal_recall": answer_metrics.refusal_recall,
+                        "n_answers": answer_metrics.n_answers},
+        }, indent=2), encoding="utf-8")
+        print(f"\nMetrics saved to {out_path}")
 
     if answer_metrics.refusal_recall < 1.0:
         print("\n" + "!" * 70)

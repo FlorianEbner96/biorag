@@ -113,15 +113,25 @@ class PubMedFetcher:
         logger.info("ESearch matched %d PMIDs (requested up to %d)", len(pmids), retmax)
         return pmids
 
-    def fetch_abstracts(self, pmids: list[str], batch_size: int = 200) -> list[PubMedAbstract]:
-        """Fetch title/abstract/metadata for a list of PMIDs via EFetch, batched."""
+    def fetch_abstracts(self, pmids: list[str], batch_size: int = 150) -> list[PubMedAbstract]:
+        """Fetch title/abstract/metadata for a list of PMIDs via EFetch, batched.
+
+        Uses HTTP POST, not GET. NCBI recommends POST whenever the ID list is
+        large: with a few hundred PMIDs a GET URL exceeds the server's length
+        limit and comes back as "400 Bad Request". POST puts the IDs in the
+        request body, so there is no length limit.
+
+        A batch that still fails (e.g. a single malformed or withdrawn PMID) is
+        logged and skipped rather than aborting the whole run -- losing one batch
+        of 150 is far better than losing the entire fetch.
+        """
         results: list[PubMedAbstract] = []
         for i in range(0, len(pmids), batch_size):
             batch = pmids[i : i + batch_size]
             logger.info(
                 "Fetching batch %d-%d of %d", i + 1, min(i + batch_size, len(pmids)), len(pmids)
             )
-            params = {
+            data = {
                 **self._base_params(),
                 "db": "pubmed",
                 "id": ",".join(batch),
@@ -129,9 +139,14 @@ class PubMedFetcher:
                 "rettype": "abstract",
             }
             self._throttle()
-            resp = requests.get(EFETCH_URL, params=params, timeout=60)
-            resp.raise_for_status()
-            results.extend(self._parse_efetch_xml(resp.text))
+            try:
+                resp = requests.post(EFETCH_URL, data=data, timeout=60)
+                resp.raise_for_status()
+                results.extend(self._parse_efetch_xml(resp.text))
+            except (requests.HTTPError, requests.RequestException) as exc:
+                logger.warning("Batch %d-%d failed (%s) -- skipping it and continuing.",
+                               i + 1, min(i + batch_size, len(pmids)), exc)
+                continue
         return results
 
     @staticmethod
