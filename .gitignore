@@ -13,3 +13,6 @@ data/index/
 models/
 .DS_Store
 .ipynb_checkpoints/
+
+# Local evaluation output (numbers live in the README instead)
+results/

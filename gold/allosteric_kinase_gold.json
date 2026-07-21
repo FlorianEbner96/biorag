@@ -1,0 +1,146 @@
+[
+  {
+    "question": "For which disease was the allosteric inhibitor asciminib approved?",
+    "question_type": "factual",
+    "relevant_pmids": ["31826340", "35041175"],
+    "expected_answer": "Chronic myeloid leukemia (CML).",
+    "expect_refusal": false,
+    "notes": "Asciminib is approved for CML after failure of ATP-competitive TKIs."
+  },
+  {
+    "question": "Which allosteric inhibitor binds the myristoyl pocket of BCR-ABL1?",
+    "question_type": "identifier",
+    "relevant_pmids": ["28329763", "36891575"],
+    "expected_answer": "Asciminib (development code ABL001).",
+    "expect_refusal": false,
+    "notes": "First-in-class allosteric BCR::ABL1 inhibitor."
+  },
+  {
+    "question": "Which compound is an allosteric inhibitor of AKT?",
+    "question_type": "identifier",
+    "relevant_pmids": ["30025252", "22057914"],
+    "expected_answer": "MK-2206.",
+    "expect_refusal": false,
+    "notes": "MK-2206 is a well-characterised allosteric Akt inhibitor."
+  },
+  {
+    "question": "What kind of inhibitor is EAI045 and which kinase does it target?",
+    "question_type": "identifier",
+    "relevant_pmids": ["27251290", "33459177", "30499387"],
+    "expected_answer": "An allosteric (mutant-selective) inhibitor of EGFR.",
+    "expect_refusal": false,
+    "notes": "EAI045 targets EGFR T790M/C797S allosterically."
+  },
+  {
+    "question": "Which allosteric SHP2 inhibitor overcomes EGFR-dependent resistance?",
+    "question_type": "identifier",
+    "relevant_pmids": ["32928921"],
+    "expected_answer": "IACS-13909.",
+    "expect_refusal": false,
+    "notes": "IACS-13909 overcomes EGFR-dependent and EGFR-independent resistance."
+  },
+  {
+    "question": "Which tool compound is used as an allosteric inhibitor of SHP2?",
+    "question_type": "identifier",
+    "relevant_pmids": ["35127377", "31682240"],
+    "expected_answer": "SHP099.",
+    "expect_refusal": false,
+    "notes": "SHP099 is the canonical allosteric SHP2 tool compound."
+  },
+  {
+    "question": "What does the development code ABL001 refer to?",
+    "question_type": "factual",
+    "relevant_pmids": ["28329763", "36891575"],
+    "expected_answer": "Asciminib, the allosteric BCR-ABL1 inhibitor.",
+    "expect_refusal": false,
+    "notes": "ABL001 is the pre-approval code name for asciminib."
+  },
+  {
+    "question": "What is the molecular target of MK-2206?",
+    "question_type": "factual",
+    "relevant_pmids": ["30025252", "22057914"],
+    "expected_answer": "AKT (protein kinase B).",
+    "expect_refusal": false,
+    "notes": ""
+  },
+  {
+    "question": "How does allosteric inhibition help overcome kinase resistance mutations?",
+    "question_type": "conceptual",
+    "relevant_pmids": ["27251290", "28329763"],
+    "expected_answer": "By binding outside the ATP pocket, allosteric inhibitors remain active against mutations that block ATP-competitive drugs, and can be combined with them.",
+    "expect_refusal": false,
+    "notes": "Covers both EGFR (T790M/C797S) and BCR-ABL resistance."
+  },
+  {
+    "question": "Why can allosteric kinase inhibitors be more selective than ATP-competitive inhibitors?",
+    "question_type": "conceptual",
+    "relevant_pmids": ["35378118", "31707699"],
+    "expected_answer": "Allosteric sites are less conserved across the kinome than the ATP pocket, so binders discriminate better between related kinases.",
+    "expect_refusal": false,
+    "notes": ""
+  },
+  {
+    "question": "What is the therapeutic rationale for allosteric SHP2 inhibition in cancer?",
+    "question_type": "conceptual",
+    "relevant_pmids": ["35127377", "32928921"],
+    "expected_answer": "SHP2 drives MAPK signalling and tumor immunosuppression; allosteric inhibition suppresses tumor growth and relieves immunosuppression.",
+    "expect_refusal": false,
+    "notes": ""
+  },
+  {
+    "question": "Which allosteric BCR-ABL1 inhibitor enables dual targeting in combination with ATP-competitive TKIs?",
+    "question_type": "factual",
+    "relevant_pmids": ["28329763"],
+    "expected_answer": "ABL001 (asciminib).",
+    "expect_refusal": false,
+    "notes": ""
+  },
+  {
+    "question": "Name allosteric inhibitors used against BCR-ABL1 and against EGFR resistance mutations.",
+    "question_type": "multi_hop",
+    "relevant_pmids": ["28329763", "27251290"],
+    "expected_answer": "Asciminib/ABL001 for BCR-ABL1; EAI045 (mutant-selective) for EGFR resistance mutations.",
+    "expect_refusal": false,
+    "notes": "Requires combining two abstracts."
+  },
+  {
+    "question": "What advantage does asciminib offer over ATP-competitive TKIs in chronic myeloid leukemia?",
+    "question_type": "conceptual",
+    "relevant_pmids": ["31826340", "36891575"],
+    "expected_answer": "It retains activity in patients who failed ATP-competitive TKIs, including against certain resistance mutations, via an allosteric mechanism.",
+    "expect_refusal": false,
+    "notes": ""
+  },
+  {
+    "question": "What is the crystal structure of the SARS-CoV-2 spike protein?",
+    "question_type": "unanswerable",
+    "relevant_pmids": [],
+    "expected_answer": null,
+    "expect_refusal": true,
+    "notes": "Entirely outside the corpus scope (allosteric kinase inhibitors)."
+  },
+  {
+    "question": "Which allosteric kinase inhibitor is approved to treat Alzheimer's disease?",
+    "question_type": "unanswerable",
+    "relevant_pmids": [],
+    "expected_answer": null,
+    "expect_refusal": true,
+    "notes": "Plausible-sounding but not in the corpus; the hard refusal case."
+  },
+  {
+    "question": "What is the monthly treatment cost of asciminib?",
+    "question_type": "unanswerable",
+    "relevant_pmids": [],
+    "expected_answer": null,
+    "expect_refusal": true,
+    "notes": "Scientific abstracts do not contain pricing information."
+  },
+  {
+    "question": "Which allosteric inhibitor targets the GABA-A receptor?",
+    "question_type": "unanswerable",
+    "relevant_pmids": [],
+    "expected_answer": null,
+    "expect_refusal": true,
+    "notes": "GABA-A is not a kinase; off-topic for this corpus."
+  }
+]

@@ -21,9 +21,43 @@ so provenance is carried through every layer rather than reconstructed at the en
 | Generation | `generation/` | complete |
 | Evaluation | `evaluation/` | complete |
 | Query CLI | `examples/ask.py` | complete |
+| Evaluation runner | `examples/evaluate.py` + `gold/` | complete |
 | API | `api/` | not started |
 
 102 tests, all passing, none requiring network, an API key, or a model download.
+
+## Results
+
+Evaluated on a real corpus of **409 PubMed abstracts** (494 chunks) against a
+hand-written gold set of **18 questions** (`gold/allosteric_kinase_gold.json`):
+factual, identifier, conceptual, multi-hop, and 22% deliberately unanswerable.
+Reproduce with `python examples/evaluate.py --out results/eval_metrics.json`.
+
+Retrieval quality over the 14 answerable questions (cutoff k=5):
+
+| Retriever | recall@5 | precision@5 | MRR | hit rate |
+|---|---|---|---|---|
+| Dense (semantic, MiniLM) | 0.27 | 0.10 | 0.34 | 0.50 |
+| BM25 (keyword baseline)  | 0.41 | 0.14 | 0.39 | 0.57 |
+| **Hybrid (RRF)**         | **0.43** | **0.16** | 0.39 | **0.64** |
+
+**Hybrid wins — but not for the textbook reason.** The naive expectation is that
+semantic retrieval beats keyword search. Here it does not: dense alone is the
+*weakest* of the three. Two honest limitations explain that:
+
+1. **The gold set leans on exact identifiers.** Nine of the 14 answerable
+   questions hinge on a specific code — EAI045, ABL001, MK-2206, IACS-13909,
+   SHP099 — which is exactly what BM25 is built for and what a general embedding
+   model handles poorly, since a compound code is a rare token it has barely seen.
+2. **The embedding model is general-purpose, not biomedical.**
+   `all-MiniLM-L6-v2` was never trained on this vocabulary. A domain model
+   (`S-PubMedBert-MS-MARCO`) should lift the dense numbers materially — the
+   evaluation harness exists precisely to *measure* that swap rather than assume it.
+
+The result that does hold is the one that matters: **fusing the two beats either
+alone** on recall (0.43) and hit rate (0.64). Neither retriever is redundant —
+BM25 nails the identifiers, dense contributes on the conceptual questions BM25
+misses, and Reciprocal Rank Fusion combines them with no score-scale tuning.
 
 ## Setup
 
@@ -120,16 +154,21 @@ backend is included for persistence, behind the same interface.
 are not commensurable, and BM25's scale is corpus-dependent. Reciprocal Rank
 Fusion combines ranks, so it needs no score-scale tuning.
 
-**BM25 scores are negative on this corpus, correctly.** "Allosteric", "kinase",
-and "inhibitor" appear in nearly every abstract, so their IDF is negative. That
-is BM25 reporting that the domain's defining terms carry no discriminative power
-here — and a concrete argument for the dense retriever rather than an argument
-against the baseline.
+**BM25's weakness here is paraphrase, not vocabulary.** On the real 409-abstract
+corpus the domain terms ("allosteric", "kinase", "inhibitor") all carry positive
+IDF, so BM25 ranks well on questions built from exact identifiers (EAI045, ABL001,
+MK-2206). Where it fails is conceptual and multi-hop questions, whose wording
+shares no tokens with the abstract that answers them (see Results) — the concrete
+case for dense retrieval. (On a tiny corpus those same terms can take *negative*
+IDF by appearing in >50% of documents; the real corpus is diverse enough that
+they do not, which is itself a reason to evaluate on real rather than toy data.)
 
 **Fuzzy title deduplication is tuned tight (0.97).** A group publishing serially
 on related compounds produces titles sharing >90% of their characters while
-describing different work. At 0.92 this discarded ~15% of a corpus of genuinely
-distinct papers.
+describing different work, so a loose threshold throws away genuinely distinct
+papers. On the real corpus the 0.97 threshold removed 4 near-duplicate titles out
+of 413 fetched; a synthetic stress test showed that dropping to 0.92 would discard
+~15% of genuinely distinct papers.
 
 **Everything is testable offline.** `data/synthetic.py` generates PubMed-shaped
 records with deliberately planted pathologies — retractions, boilerplate,
