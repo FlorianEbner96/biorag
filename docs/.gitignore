@@ -1,0 +1,12 @@
+# LaTeX build artefacts. The .tex source and the built .pdf are committed;
+# everything pdflatex generates on the way is not.
+*.aux
+*.log
+*.out
+*.toc
+*.fls
+*.fdb_latexmk
+*.synctex.gz
+
+# Page previews generated while proofreading the PDF.
+pg-*.png

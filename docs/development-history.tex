@@ -1,0 +1,454 @@
+%-------------------------------------------------------------------------------
+% biorag — Development History and Design Rationale
+% Build:  pdflatex development-history.tex   (twice, for the ToC)
+%-------------------------------------------------------------------------------
+\documentclass[a4paper,11pt]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[english]{babel}
+\usepackage{charter}
+\usepackage[margin=2.4cm]{geometry}
+\usepackage{microtype}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{enumitem}
+\usepackage{xcolor}
+\usepackage{titlesec}
+\usepackage{fancyhdr}
+\usepackage{tikz}
+\usepackage{caption}
+\usepackage[hidelinks]{hyperref}
+
+\definecolor{accent}{HTML}{1F4E79}
+\definecolor{muted}{HTML}{5A5A5A}
+\definecolor{rule}{HTML}{C8C8C8}
+\definecolor{boxbg}{HTML}{F4F6F8}
+
+\hypersetup{colorlinks=true, linkcolor=accent, urlcolor=accent}
+
+\titleformat{\section}{\large\bfseries\color{accent}}{\thesection}{0.7em}{}
+\titleformat{\subsection}{\normalsize\bfseries}{\thesubsection}{0.6em}{}
+\titlespacing*{\section}{0pt}{1.6em}{0.7em}
+
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\footnotesize\color{muted}biorag — Development History}
+\fancyhead[R]{\footnotesize\color{muted}\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+\renewcommand{\headrule}{\hbox to\headwidth{\color{rule}\leaders\hrule height \headrulewidth\hfill}}
+
+\setlist[itemize]{leftmargin=1.3em, itemsep=2pt, topsep=3pt}
+\newcommand{\code}[1]{\texttt{\small #1}}
+
+% A "decision" callout: what was chosen, and what was rejected.
+\newenvironment{decision}[1]
+  {\par\vspace{0.5em}\noindent
+   \begin{tikzpicture}
+   \node[fill=boxbg, rounded corners=2pt, inner sep=9pt, text width=\dimexpr\linewidth-20pt\relax,
+         align=left] \bgroup \textbf{#1}\par\vspace{3pt}\small}
+  {\egroup;\end{tikzpicture}\par\vspace{0.4em}}
+
+%-------------------------------------------------------------------------------
+\begin{document}
+
+\begin{center}
+  {\LARGE\bfseries biorag}\\[0.35em]
+  {\large Development History and Design Rationale}\\[1.1em]
+  {\color{muted}Retrieval-augmented QA over PubMed literature\\
+   on allosteric kinase inhibitors}\\[1.4em]
+  \begin{tabular}{@{}r@{\hspace{1em}}l@{}}
+    \textbf{Author}     & Florian Ebner \\
+    \textbf{Repository} & \url{https://github.com/FlorianEbner96/biorag} \\
+    \textbf{Licence}    & MIT \\
+    \textbf{Compiled}   & \today \\
+  \end{tabular}
+\end{center}
+
+\vspace{1.2em}
+\hrule height 0.4pt
+\vspace{1.2em}
+
+\noindent
+This document records \emph{how} the system was built and, more importantly,
+\emph{why} each layer was designed the way it was. It is deliberately not a
+feature list: a feature list says what exists, and the interesting content of an
+engineering project is the set of alternatives that were considered and
+rejected. Where a decision went against the obvious default, the reasoning is
+given in full, including the cases where the measured result contradicted the
+expectation.
+
+\tableofcontents
+
+%-------------------------------------------------------------------------------
+\section{The problem and the core promise}
+
+A language model asked about allosteric kinase inhibitors will answer from its
+parametric memory. In a scientific domain this is not merely imprecise; it is
+unverifiable, which is worse. The reader cannot tell a correct recollection from
+a fluent fabrication, because both look identical.
+
+\begin{decision}{Core promise}
+Every generated claim traces to a specific abstract via its PMID, and
+\emph{every citation is checked against what was actually retrieved}. Provenance
+is carried through every layer rather than reconstructed at the end, because
+provenance rebuilt after the fact is provenance that is wrong sometimes.
+\end{decision}
+
+\noindent
+The scope was narrowed deliberately to one target class --- allosteric kinase
+inhibitors --- rather than oncology or pharmacology at large. A corpus of a few
+hundred abstracts is large enough to be a genuine retrieval problem and small
+enough to finish, evaluate and understand alone.
+
+%-------------------------------------------------------------------------------
+\section{Timeline}
+
+The system was built in four commits across three days, then extended with an
+HTTP layer. Each stage is listed with what it added and what question it
+answered.
+
+\begin{longtable}{@{}p{2.05cm}p{2.6cm}p{9.6cm}@{}}
+\toprule
+\textbf{Date} & \textbf{Commit} & \textbf{What it added} \\
+\midrule
+\endhead
+2026-07-19 & \code{67c34f0} &
+  \textbf{Foundation: data through retrieval.}
+  Config, canonical schema, PubMed fetcher (NCBI E-utilities), corpus cleaner,
+  chunker, embedder, vector store, and three retrievers (dense, BM25, hybrid).
+  Synthetic corpus generator added at the same time, so the cleaner could be
+  asserted against known ground truth from the first commit rather than
+  retrofitted with tests later. \\
+\addlinespace
+2026-07-19 & \code{664c654} &
+  \textbf{Generation and evaluation.}
+  Prompt templates, the \code{Answerer} with citation verification, the gold-set
+  loader and the retrieval metrics. MIT licence added. Dependencies corrected in
+  the same commit: \code{numpy} and \code{requests} were used everywhere but never
+  declared (a fresh install relied on them arriving transitively via
+  \code{torch}), while \code{anthropic}, \code{fastapi}, \code{uvicorn} and
+  \code{pydantic} were declared but unused and became optional extras.
+  \code{regex} was listed and never used at all. \\
+\addlinespace
+2026-07-21 & \code{9cfd6eb} &
+  \textbf{Query CLI and batching fix.}
+  \code{examples/ask.py}: one-shot or interactive querying against the real
+  index, with optional JSON output. Degrades to retrieval-only without an API
+  key. \\
+\addlinespace
+2026-07-21 & \code{b39e488} &
+  \textbf{Gold standard and evaluation runner.}
+  18 hand-written questions with known relevant PMIDs, and
+  \code{examples/evaluate.py} to score the three retrievers against them. \\
+\addlinespace
+2026-09-02 & \emph{(this work)} &
+  \textbf{HTTP API.}
+  \code{/health}, \code{/ask} and \code{/search} on FastAPI, with Pydantic
+  request and response models, dependency injection for testability, and 17
+  additional offline tests. \\
+\bottomrule
+\end{longtable}
+
+\noindent
+\textbf{Current size.} 2\,571 lines of source across 14 modules, 912 lines of
+tests, 119 tests passing --- none requiring network access, an API key, or a
+model download.
+
+%-------------------------------------------------------------------------------
+\section{Architecture}
+
+Data flows in one direction, and every stage preserves the PMID.
+
+\begin{center}
+\small
+\begin{tabular}{@{}llp{7.6cm}@{}}
+\toprule
+\textbf{Layer} & \textbf{Module} & \textbf{Responsibility} \\
+\midrule
+Data --- fetch     & \code{data/fetch\_pubmed.py}   & ESearch $\rightarrow$ EFetch, rate-limited, cached as raw JSON \\
+Data --- clean     & \code{data/clean\_corpus.py}   & Dedup, boilerplate stripping, retraction and quality filters \\
+Ingestion --- chunk & \code{ingestion/chunker.py}   & Section-aware splitting, whole abstracts by default \\
+Ingestion --- embed & \code{ingestion/embedder.py}  & Local sentence-transformers, normalised vectors \\
+Ingestion --- store & \code{ingestion/store.py}     & Exact NumPy search; optional Chroma backend \\
+Retrieval          & \code{retrieval/retriever.py}  & Dense, BM25, and rank-fused hybrid \\
+Generation         & \code{generation/}             & Prompting, answering, citation verification \\
+Evaluation         & \code{evaluation/}             & Gold set, retrieval and refusal metrics \\
+API                & \code{api/}                    & FastAPI service over the same components \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+%-------------------------------------------------------------------------------
+\section{Design decisions}
+
+\subsection{Abstracts are not chunked by default}
+
+The reflexive default in most RAG tutorials is a 200-token sliding window. That
+convention is inherited from chunking long PDFs and is actively harmful here.
+
+\begin{decision}{Decision}
+Keep whole abstracts intact below 2\,000 characters (roughly 95\% of them).
+Above that, split only on the author's own section boundaries.
+\end{decision}
+
+\noindent
+A PubMed abstract is around 250 words and is already a coherent retrieval unit,
+written by an expert to summarise one paper. Splitting it separates a finding
+from the condition that qualifies it, and embeds fragments no model was trained
+on.
+
+\subsection{Unicode normalised, never ASCII-folded}
+
+\begin{decision}{Decision}
+NFKC normalisation only. The idiom
+\code{normalize('NFKD').encode('ascii','ignore')} is explicitly rejected.
+\end{decision}
+
+\noindent
+PI3K$\alpha$ and PI3K$\beta$ are different proteins with different inhibitors.
+The standard cleaning idiom collapses both to ``PI3K'' and destroys the exact
+distinction a question may turn on.
+
+\subsection{Exact search, not a vector database}
+
+\begin{decision}{Decision}
+Brute-force NumPy dot product as the default store. A Chroma backend exists
+behind the same interface for persistence.
+\end{decision}
+
+\noindent
+At this scale a $3000 \times 384$ float32 matrix is 4.6\,MB and one
+matrix--vector product takes single-digit milliseconds. Approximate-nearest-neighbour
+indexes trade recall for speed at $10^5$--$10^8$ vectors; at $10^3$ they add a
+dependency and lose recall in exchange for imperceptible gain.
+
+\subsection{Hybrid retrieval fuses ranks, not scores}
+
+\begin{decision}{Decision}
+Reciprocal Rank Fusion over the two ranked lists.
+\end{decision}
+
+\noindent
+Cosine similarities and BM25 scores are not commensurable, and BM25's scale is
+corpus-dependent. Fusing ranks needs no score normalisation and no tuning
+constant that silently depends on the corpus.
+
+\subsection{Fuzzy title deduplication tuned tight, at 0.97}
+
+\begin{decision}{Decision}
+0.97, not the more intuitive 0.90--0.92.
+\end{decision}
+
+\noindent
+A group publishing serially on related compounds produces titles sharing more
+than 90\% of their characters while describing entirely different work. Testing
+against a synthetic corpus with known ground truth showed that a 0.92 threshold
+silently discarded roughly 15\% of genuinely distinct papers. On the real
+corpus, 0.97 removed 4 near-duplicates out of 413 fetched.
+
+\subsection{Citations are verified, not trusted}
+
+\begin{decision}{Decision}
+The prompt requests inline \code{[PMID]} markers; the answerer then checks every
+cited PMID against what was actually in the context. \code{Answer.is\_grounded}
+becomes false when a citation was fabricated.
+\end{decision}
+
+\noindent
+This is the single most damaging failure mode the system has, precisely because
+the output looks entirely credible. A model citing a plausible PMID that was
+never retrieved produces text that a reader cannot distinguish from a correct
+answer.
+
+\subsection{Empty retrieval refuses deterministically}
+
+If nothing was retrieved, the system returns a refusal without calling the model
+at all. Hoping a model refuses on empty context is a coin flip; refusing in code
+is free and certain.
+
+\subsection{Everything is testable offline}
+
+\begin{decision}{Decision}
+\code{data/synthetic.py} generates PubMed-shaped records with deliberately
+planted pathologies --- retractions, boilerplate, duplicate titles, one-line
+abstracts. A hashing \code{FakeEmbedder} and a scripted \code{FakeLLM} stand in
+for the model and the API.
+\end{decision}
+
+\noindent
+Tests that need the network get skipped, and skipped tests protect nothing. All
+119 tests run with no network, no API key and no model download.
+
+%-------------------------------------------------------------------------------
+\section{Evaluation}
+
+\subsection{The gold set}
+
+18 hand-written questions against the real corpus, written \emph{before} tuning
+anything --- questions written after seeing what the system does well measure
+the author's selection bias rather than the system.
+
+\begin{center}
+\small
+\begin{tabular}{@{}lr@{}}
+\toprule
+\textbf{Question type} & \textbf{Count} \\
+\midrule
+Identifier (specific compound codes) & 5 \\
+Factual                              & 4 \\
+Conceptual                           & 4 \\
+\textbf{Unanswerable} (expects refusal) & \textbf{4} \\
+Multi-hop                            & 1 \\
+\midrule
+Total & 18 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\begin{decision}{Why 22\% of the gold set is deliberately unanswerable}
+This is the category most evaluation sets omit, and the only one that detects a
+system which answers everything confidently. A RAG system scoring perfectly on
+factual questions while never refusing is useless in a scientific setting, and
+\code{refusal\_recall} cannot be computed at all without such questions.
+\end{decision}
+
+\subsection{Retrieval results}
+
+Corpus: 409 PubMed abstracts, 494 chunks. Scored over the 14 answerable
+questions at $k=5$.
+
+\begin{center}
+\small
+\begin{tabular}{@{}lrrrr@{}}
+\toprule
+\textbf{Retriever} & \textbf{recall@5} & \textbf{precision@5} & \textbf{MRR} & \textbf{hit rate} \\
+\midrule
+Dense (semantic, MiniLM) & 0.274 & 0.100 & 0.339 & 0.500 \\
+BM25 (keyword baseline)  & 0.405 & 0.143 & \textbf{0.393} & 0.571 \\
+\textbf{Hybrid (RRF)}    & \textbf{0.429} & \textbf{0.157} & 0.392 & \textbf{0.643} \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{The result that contradicted the expectation}
+
+The textbook expectation is that semantic retrieval beats keyword search. Here
+it did not: dense retrieval was the \emph{weakest} of the three. Two honest
+limitations explain it, and neither was known in advance.
+
+\begin{enumerate}[leftmargin=1.6em]
+  \item \textbf{The gold set leans on exact identifiers.} Nine of the 14
+        answerable questions hinge on a specific compound code --- EAI045,
+        ABL001, MK-2206, IACS-13909, SHP099. This is precisely what BM25 is
+        built for and what a general embedding model handles poorly, since a
+        compound code is a rare token it has barely seen.
+  \item \textbf{The embedding model is general-purpose, not biomedical.}
+        \code{all-MiniLM-L6-v2} was never trained on this vocabulary. A domain
+        model such as \code{S-PubMedBert-MS-MARCO} should lift the dense numbers
+        materially --- and the evaluation harness exists precisely to
+        \emph{measure} that swap rather than assume it.
+\end{enumerate}
+
+\noindent
+The conclusion that does hold is the one that matters: \textbf{fusing the two
+beats either alone} on recall and hit rate. Neither retriever is redundant. BM25
+nails the identifiers; dense contributes on the conceptual questions whose
+wording shares no tokens with the abstract that answers them.
+
+\begin{decision}{A note on BM25 and negative IDF}
+On a small synthetic corpus the domain terms (``allosteric'', ``kinase'',
+``inhibitor'') appear in more than half of all documents and take negative IDF,
+so BM25 scores come out negative --- correctly reporting that the domain's
+defining terms carry no discriminative power. On the real 409-abstract corpus
+they do not, which is itself an argument for evaluating on real rather than toy
+data.
+\end{decision}
+
+\subsection{Retrieval and generation are scored separately}
+
+In that order, and on purpose. If recall@5 is 0.4, no amount of prompt
+engineering will fix the answers, because the relevant abstract was never in the
+context. Debugging generation when the fault is upstream in retrieval is the
+most common time sink in these projects.
+
+%-------------------------------------------------------------------------------
+\section{The HTTP layer}
+
+The API exposes the same components over HTTP without changing their contracts.
+
+\begin{center}
+\small
+\begin{tabular}{@{}llp{8.2cm}@{}}
+\toprule
+\textbf{Endpoint} & \textbf{Method} & \textbf{Purpose} \\
+\midrule
+\code{/health} & GET  & Readiness, not just liveness --- reports indexed chunk count and whether generation is configured \\
+\code{/ask}    & POST & Cited answer when a key is set, otherwise the retrieved abstracts \\
+\code{/search} & GET  & Retrieval only, never generation --- the guaranteed-free path \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\begin{decision}{Load once, in a lifespan handler}
+At import time the module would be unimportable without a built index, which
+breaks the test suite. Per request it would pay an $\approx$80\,MB model load on
+every call. FastAPI's \code{lifespan} does it exactly once and is the documented
+replacement for the deprecated \code{@app.on\_event("startup")}.
+\end{decision}
+
+\begin{decision}{Dependencies are injected, never constructed in a handler}
+The rest of the codebase already works this way --- \code{Answerer} takes an
+injected LLM client, \code{RAGPipeline} an injected retriever --- and that is
+exactly why the tests need no key, no network and no model. Handlers depend on
+\code{get\_deps()}, which tests override with fake-backed instances, so the API
+layer does not become the one place that breaks the property.
+\end{decision}
+
+\begin{decision}{A missing index returns 503, not 500}
+``I have no index'' is not a server error, it is \emph{not ready to serve}. An
+orchestrator keeps a 503 container out of rotation until its volume is mounted;
+a 500 looks like a crash loop. Correspondingly, \code{/health} reports the chunk
+count, because the failure that actually happens in a container is not a dead
+process but a live one whose index volume was never mounted.
+\end{decision}
+
+\noindent
+\textbf{The verification result is part of the response.} \code{is\_grounded}
+and \code{hallucinated\_citations} are first-class response fields rather than
+server-side log lines. An API returning the answer text while dropping the
+verification would hand back exactly the unverifiable output this project exists
+to avoid.
+
+%-------------------------------------------------------------------------------
+\section{Known limitations and next steps}
+
+Stated plainly, because a portfolio project that claims no limitations is not
+credible.
+
+\begin{itemize}
+  \item \textbf{The embedding model is not biomedical.} This is the single
+        clearest improvement available, and the harness exists to measure it.
+  \item \textbf{Absolute retrieval numbers are modest.} recall@5 of 0.43 on an
+        identifier-heavy gold set is a starting point, not a finished result.
+  \item \textbf{The gold set is small} at 18 questions, and written by one
+        person. It detects gross regressions, not subtle ones.
+  \item \textbf{Groundedness is checked at citation level, not claim level.} A
+        model can cite a genuinely retrieved PMID for a claim that abstract does
+        not make. Claim-level verification is the natural next layer.
+  \item \textbf{No CI yet.} The tests run offline in under two seconds, so
+        wiring them into GitHub Actions is the obvious next step and would make
+        the test suite a gate rather than a habit.
+  \item \textbf{Docker} is the remaining packaging step, so the whole system
+        runs with one command.
+\end{itemize}
+
+\vspace{1em}
+\hrule height 0.4pt
+\vspace{0.8em}
+\noindent{\footnotesize\color{muted}
+Source and full documentation:
+\url{https://github.com/FlorianEbner96/biorag}}
+
+\end{document}

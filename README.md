@@ -22,9 +22,9 @@ so provenance is carried through every layer rather than reconstructed at the en
 | Evaluation | `evaluation/` | complete |
 | Query CLI | `examples/ask.py` | complete |
 | Evaluation runner | `examples/evaluate.py` + `gold/` | complete |
-| API | `api/` | not started |
+| API | `api/` | complete |
 
-102 tests, all passing, none requiring network, an API key, or a model download.
+119 tests, all passing, none requiring network, an API key, or a model download.
 
 ## Results
 
@@ -75,7 +75,7 @@ no key. Good for seeing the whole pipeline end to end in seconds.
 ```bash
 python examples/demo_retrieval.py    # clean -> chunk -> index -> retrieve
 python examples/demo_evaluation.py   # retrieval + generation + metrics
-pytest -q                            # 102 tests, all offline
+pytest -q                            # 119 tests, all offline
 ```
 
 ## Run it on a real corpus
@@ -121,6 +121,42 @@ requires credits):
 export ANTHROPIC_API_KEY=sk-ant-...    # Windows: $env:ANTHROPIC_API_KEY = "sk-ant-..."
 python examples/ask.py
 ```
+
+## Serve it over HTTP
+
+```
+pip install -e ".[api,generation]"
+uvicorn biorag.api.app:app --reload
+```
+
+Then open <http://127.0.0.1:8000/docs> for the interactive OpenAPI schema.
+
+| Endpoint | Method | Purpose |
+| --- | --- | --- |
+| `/health` | GET | Readiness, not just liveness — reports the number of indexed chunks and whether generation is configured. |
+| `/ask` | POST | Answer a question. Generates a cited answer when `ANTHROPIC_API_KEY` is set, otherwise returns the retrieved abstracts. |
+| `/search` | GET | Retrieval only, **never** generation — the guaranteed-free path, even when a key is configured. |
+
+```
+curl -s localhost:8000/health
+curl -s -X POST localhost:8000/ask \
+  -H 'content-type: application/json' \
+  -d '{"question": "Which compounds inhibit PI3K-alpha allosterically?"}'
+```
+
+**The verification result is part of the response, not a server-side log line.**
+`is_grounded` is false and `hallucinated_citations` is non-empty whenever the
+model cited a PMID that was never retrieved. An API that returned the answer text
+but dropped that flag would hand back exactly the unverifiable output this
+project exists to avoid.
+
+**Three decisions worth knowing about the API layer.** The index and embedding
+model load once in a `lifespan` handler — at import time the module would be
+unusable without an index, and per request it would pay an ~80 MB model load on
+every call. Handlers take their dependencies through an injected `get_deps()`,
+which is what keeps the API tests offline like the rest of the suite. And a
+missing index returns **503, not 500**: "not ready to serve" and "crashed" mean
+different things to an orchestrator.
 
 ## Data flow
 
@@ -201,4 +237,4 @@ most common time sink in these projects.
 2. Run the retriever comparison on real data and paste the table here.
 3. Swap in a biomedical embedding model (`S-PubMedBert-MS-MARCO`) and measure
    whether it beats MiniLM on this corpus, rather than assuming it does.
-4. FastAPI `/ask` endpoint, then Docker.
+4. Docker image, so the whole thing runs with one command.
