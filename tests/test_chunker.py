@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from biorag.config import ChunkingConfig
 from biorag.data.clean_corpus import clean_corpus
-from biorag.data.synthetic import make_abstract, make_corpus
+from biorag.data.synthetic import make_abstract
 from biorag.ingestion.chunker import chunk_abstract, chunk_corpus
 
 

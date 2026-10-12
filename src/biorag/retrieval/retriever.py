@@ -31,7 +31,7 @@ from typing import Protocol
 
 from ..config import DEFAULT, RetrievalConfig
 from ..ingestion.embedder import Embedder
-from ..ingestion.store import NumpyStore, SearchHit, VectorStore
+from ..ingestion.store import NumpyStore, VectorStore
 from ..schema import Chunk, RetrievedChunk
 
 logger = logging.getLogger(__name__)

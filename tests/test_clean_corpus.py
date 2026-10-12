@@ -2,10 +2,10 @@
 from __future__ import annotations
 
 from biorag.data.clean_corpus import (
-    clean_corpus, clean_record, is_retracted, normalize_text,
+    clean_corpus, is_retracted, normalize_text,
     parse_sections, strip_boilerplate,
 )
-from biorag.data.synthetic import make_abstract, make_corpus
+from biorag.data.synthetic import make_abstract
 
 
 class TestNormalization:
