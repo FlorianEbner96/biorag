@@ -6,11 +6,15 @@ call in the whole system is answer generation.
 """
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-DATA_DIR = PROJECT_ROOT / "data"
+# PROJECT_ROOT is only meaningful in a repo checkout. Installed into
+# site-packages (as in the Docker image) it points nowhere useful, so
+# BIORAG_DATA_DIR lets the deployment say where the data actually lives.
+DATA_DIR = Path(os.environ.get("BIORAG_DATA_DIR") or PROJECT_ROOT / "data")
 RAW_DIR = DATA_DIR / "raw"
 CLEAN_DIR = DATA_DIR / "clean"
 INDEX_DIR = DATA_DIR / "index"
