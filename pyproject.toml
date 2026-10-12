@@ -19,7 +19,9 @@ dependencies = [
 generation = ["anthropic>=0.40"]
 chroma = ["chromadb>=0.5"]
 api = ["fastapi>=0.110", "uvicorn>=0.29", "pydantic>=2.6"]
-dev = ["pytest>=8.0", "pytest-cov", "ruff"]
+# ruff is pinned exactly: new releases enable new rules by default, which turns
+# CI red with no code change. Upgrade it deliberately, fixing findings in one go.
+dev = ["pytest>=8.0", "pytest-cov", "ruff==0.15.22"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
