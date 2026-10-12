@@ -1,0 +1,8 @@
+{
+  "model_name": "sentence-transformers/all-MiniLM-L6-v2",
+  "dim": 384,
+  "n_abstracts": 409,
+  "n_chunks": 494,
+  "normalize": true,
+  "max_chunk_chars": 2000
+}

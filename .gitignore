@@ -8,7 +8,9 @@ venv/
 .ruff_cache/
 data/raw/*.json
 data/clean/*.json
-data/index/
+# data/index/ is committed on purpose: it is small (~1.5 MB) and the Docker
+# image bakes it in, so CI needs it in the repo to build a working image.
+data/index/chroma/
 .cache/
 models/
 .DS_Store
