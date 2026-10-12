@@ -1,0 +1,12 @@
+# Allowlist: ignore everything, then admit only what the image needs. Safer than
+# a denylist, because a new secret or large file added to the repo later is
+# excluded by default rather than silently copied into the build context.
+*
+!pyproject.toml
+!src/
+!data/index/
+
+# Never ship bytecode or the optional Chroma store, even from allowed dirs.
+**/__pycache__
+**/*.py[cod]
+data/index/chroma/

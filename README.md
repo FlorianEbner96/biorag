@@ -23,8 +23,9 @@ so provenance is carried through every layer rather than reconstructed at the en
 | Query CLI | `examples/ask.py` | complete |
 | Evaluation runner | `examples/evaluate.py` + `gold/` | complete |
 | API | `api/` | complete |
+| Container | `Dockerfile` + CI smoke test | complete |
 
-119 tests, all passing, none requiring network, an API key, or a model download.
+122 tests, all passing, none requiring network, an API key, or a model download.
 
 ## Results
 
@@ -158,6 +159,44 @@ which is what keeps the API tests offline like the rest of the suite. And a
 missing index returns **503, not 500**: "not ready to serve" and "crashed" mean
 different things to an orchestrator.
 
+## Run it in Docker
+
+```
+docker build -t biorag .
+docker run --rm -p 8000:8000 biorag
+```
+
+The image serves immediately: the prebuilt index (`data/index/`, 494 chunks)
+and the embedding model are baked in, so it starts with no setup and no network
+access. Same endpoints as above, at <http://127.0.0.1:8000/docs>.
+
+```
+# Enable answer generation (retrieval-only without it). The key is passed at
+# runtime and never written into the image.
+docker run --rm -p 8000:8000 -e ANTHROPIC_API_KEY=sk-ant-... biorag
+
+# Serve a different corpus without rebuilding: mount your own index over the
+# default one.
+docker run --rm -p 8000:8000 -v "$PWD/data/index:/app/data/index:ro" biorag
+```
+
+**CPU-only PyTorch.** The default PyPI wheel bundles ~4 GB of CUDA libraries
+that a MiniLM service on CPU never touches; installing torch from PyTorch's CPU
+index first keeps the image around 1 GB instead of 5+. **Multi-stage build,
+non-root user, allowlist `.dockerignore`:** build tooling never ships, the
+process can't modify its own image, and a secret added to the repo later is
+excluded from the build context by default. **The `HEALTHCHECK` requires
+`status: "ok"`**, not merely a 200, so a container whose index is missing reports
+unhealthy instead of quietly serving 503s.
+
+CI ([`.github/workflows/docker.yml`](.github/workflows/docker.yml)) runs lint
+and the offline test suite, then builds the image and smoke-tests it: it starts
+the container, waits for `/health` to report all 494 chunks, and runs a real
+`/search`. A green build means the image serves, not just that it built.
+
+`BIORAG_DATA_DIR` overrides where the data directory lives (default: `data/` in
+the repo checkout). The image sets it to `/app/data`.
+
 ## Data flow
 
 ```
@@ -237,4 +276,3 @@ most common time sink in these projects.
 2. Run the retriever comparison on real data and paste the table here.
 3. Swap in a biomedical embedding model (`S-PubMedBert-MS-MARCO`) and measure
    whether it beats MiniLM on this corpus, rather than assuming it does.
-4. Docker image, so the whole thing runs with one command.

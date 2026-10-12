@@ -1,0 +1,85 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+# A newer push to the same branch makes an in-flight run obsolete.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      # CPU torch first, same reason as in the Dockerfile: the default wheel
+      # drags in ~4 GB of CUDA libraries the tests never touch.
+      - name: Install
+        run: |
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
+          pip install -e ".[api,dev]"
+
+      - name: Lint
+        run: ruff check .
+
+      # Offline suite only: no NCBI, no model download, no paid API call.
+      - name: Test
+        run: pytest -q -m "not network and not model and not llm"
+
+  build:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      # `load: true` puts the image in the local daemon so the smoke test can
+      # run it. The GitHub Actions cache keeps unchanged layers (torch, the
+      # model) across runs, so most builds only redo the source layers.
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          load: true
+          tags: biorag:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # A successful build only proves the Dockerfile parses. This proves the
+      # image actually serves: the index loads, the baked-in model loads with
+      # no network access, and retrieval returns results.
+      - name: Smoke test
+        run: |
+          docker run -d --name biorag -p 8000:8000 biorag:ci
+
+          for i in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:8000/health > health.json 2>/dev/null \
+               && grep -q '"status":"ok"' health.json; then
+              break
+            fi
+            sleep 2
+          done
+
+          echo "--- /health"; cat health.json; echo
+          grep -q '"status":"ok"' health.json
+          grep -q '"chunks":494' health.json
+
+          echo "--- /search"
+          curl -fsS "http://127.0.0.1:8000/search?q=allosteric%20SHP2%20inhibitor&k=3" | tee search.json
+          echo
+          grep -q '"pmid"' search.json
+
+      - name: Container logs
+        if: always()
+        run: docker logs biorag || true
